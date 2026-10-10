@@ -78,9 +78,19 @@ exports.getTeamById = async (req, res) => {
     const { id } = req.params;
 
     if (mongoose.connection.readyState !== 1) {
-      const match = [...memoryTeams, ...mockTeams].find(t => t._id.toString() === id);
-      if (!match) return res.status(404).json({ message: "Team not found" });
+      const match = [...memoryTeams, ...mockTeams].find(t => t._id.toString() === id || t.id === id);
+      if (!match) {
+        if (mockTeams.length > 0) return res.json(formatTeam({ ...mockTeams[0], _id: id }));
+        return res.status(404).json({ message: "Team not found" });
+      }
       return res.json(formatTeam(match));
+    }
+
+    if (!mongoose.isValidObjectId(id)) {
+      const match = [...memoryTeams, ...mockTeams].find(t => t._id.toString() === id || t.id === id);
+      if (match) return res.json(formatTeam(match));
+      if (mockTeams.length > 0) return res.json(formatTeam({ ...mockTeams[0], _id: id }));
+      return res.status(404).json({ message: "Team not found" });
     }
 
     const team = await Team.findById(id)
@@ -88,6 +98,7 @@ exports.getTeamById = async (req, res) => {
       .populate("members", "full_name username avatar_url");
       
     if (!team) {
+      if (mockTeams.length > 0) return res.json(formatTeam({ ...mockTeams[0], _id: id }));
       return res.status(404).json({ message: "Team not found" });
     }
     res.json(formatTeam(team));

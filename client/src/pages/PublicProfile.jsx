@@ -40,22 +40,35 @@ const PublicProfile = () => {
         const profileData = await getUserProfile(username);
         if (profileData) {
           setProfile(profileData);
-          
+
+          const currentUserId = currentUser?.id || currentUser?._id;
+          const targetProfileId = profileData?.id || profileData?._id;
+
           // Check connection status if user is logged in and not viewing own profile
-          if (currentUser && currentUser.id !== profileData.id) {
-            const status = await getConnectionStatus(currentUser.id, profileData.id);
-            setConnectionStatus(status);
+          if (currentUserId && targetProfileId && currentUserId !== targetProfileId) {
+            try {
+              const status = await getConnectionStatus(currentUserId, targetProfileId);
+              setConnectionStatus(status || "none");
+            } catch (statusErr) {
+              console.warn("Could not check connection status:", statusErr);
+              setConnectionStatus("none");
+            }
           }
+        } else {
+          setProfile(null);
         }
       } catch (err) {
         console.error(err);
         toast.error("Failed to load profile");
+        setProfile(null);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProfileData();
+    if (username) {
+      fetchProfileData();
+    }
   }, [username, currentUser]);
 
   const handleConnect = async () => {
@@ -65,9 +78,14 @@ const PublicProfile = () => {
       return;
     }
 
+    const currentUserId = currentUser?.id || currentUser?._id;
+    const targetProfileId = profile?.id || profile?._id;
+
+    if (!targetProfileId) return;
+
     setConnecting(true);
     try {
-      await sendConnectionRequest(currentUser.id, profile.id);
+      await sendConnectionRequest(currentUserId, targetProfileId);
       setConnectionStatus("pending");
       toast.success("Connection request sent!");
     } catch (err) {
@@ -82,17 +100,31 @@ const PublicProfile = () => {
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f1f5f9]">
+      <div className="min-h-screen flex items-center justify-center bg-[#f1f5f9] p-4">
         <Card className="p-8 text-center max-w-md bg-white/60 backdrop-blur-xl">
           <h2 className="text-2xl font-bold text-slate-800 mb-2">Profile Not Found</h2>
-          <p className="text-slate-500 mb-6">The developer profile you are looking for does not exist.</p>
-          <Button onClick={() => navigate("/")}>Go Home</Button>
+          <p className="text-slate-500 mb-6">
+            The developer profile for &quot;@{username}&quot; does not exist or has not been created yet.
+          </p>
+          <div className="flex justify-center gap-3">
+            <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+            <Button onClick={() => navigate("/")}>Go Home</Button>
+          </div>
         </Card>
       </div>
     );
   }
 
-  const isOwnProfile = currentUser && currentUser.id === profile.id;
+  const currentUserId = currentUser?.id || currentUser?._id;
+  const profileUserId = profile?.id || profile?._id;
+  const isOwnProfile = Boolean(
+    currentUser &&
+    profile &&
+    (
+      (currentUserId && profileUserId && currentUserId === profileUserId) ||
+      (currentUser.username && profile.username && currentUser.username.toLowerCase() === profile.username.toLowerCase())
+    )
+  );
 
   return (
     <div className="min-h-screen bg-[#f1f5f9] bg-[radial-gradient(at_top_left,_#e2e8f0_0%,_transparent_50%),_radial-gradient(at_top_right,_#c7d2fe_0%,_transparent_50%)] py-12 px-4">

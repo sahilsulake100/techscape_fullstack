@@ -149,6 +149,10 @@ exports.getProfile = async (req, res) => {
     }
 
     if (!user) {
+      const match = mockCandidates.find(
+        c => c._id.toString() === identifier || c.username === identifier.toLowerCase()
+      );
+      if (match) return res.json(formatUserResponse(match));
       return res.status(404).json({ message: "Profile not found" });
     }
 
